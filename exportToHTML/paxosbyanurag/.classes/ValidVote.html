@@ -1,0 +1,296 @@
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html id="htmlId">
+<head>
+  <title>Coverage Report :: ValidVote</title>
+  <style type="text/css">
+    @import "../../.css/coverage.css";
+  </style>
+</head>
+
+<body>
+<div class="header"></div>
+
+<div class="content">
+<div class="breadCrumbs">
+    [ <a href="../../index.html">all classes</a> ]
+    [ <a href="../index.html">paxosbyanurag</a> ]
+</div>
+
+<h1>Coverage Summary for Class: ValidVote (paxosbyanurag)</h1>
+
+<table class="coverageStats">
+
+<tr>
+  <th class="name">Class</th>
+<th class="coverageStat 
+">
+  Method, %
+</th>
+<th class="coverageStat 
+">
+  Line, %
+</th>
+</tr>
+<tr>
+  <td class="name">ValidVote</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    100%
+  </span>
+  <span class="absValue">
+    (1/ 1)
+  </span>
+</td>
+</tr>
+  <tr>
+    <td class="name">ValidVote$</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    0%
+  </span>
+  <span class="absValue">
+    (0/ 1)
+  </span>
+</td>
+  </tr>
+<tr>
+  <td class="name"><strong>total</strong></td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (1/ 2)
+  </span>
+</td>
+<td class="coverageStat">
+  <span class="percent">
+    50%
+  </span>
+  <span class="absValue">
+    (1/ 2)
+  </span>
+</td>
+</tr>
+</table>
+
+<br/>
+<br/>
+
+
+<div class="sourceCode"><i>1</i>&nbsp;/**
+<i>2</i>&nbsp;  * Created by anurag &amp; thomas on 12/22/15.
+<i>3</i>&nbsp;  */
+<i>4</i>&nbsp;
+<i>5</i>&nbsp;package paxosbyanurag
+<i>6</i>&nbsp;
+<i>7</i>&nbsp;import akka.actor.Props
+<i>8</i>&nbsp;import akka.event.Logging
+<i>9</i>&nbsp;import paxosbyanurag.pxtest.PId
+<i>10</i>&nbsp;import scala.collection.mutable
+<i>11</i>&nbsp;import akka.actor.Actor
+<i>12</i>&nbsp;import akka.actor.ActorRef
+<i>13</i>&nbsp;
+<i>14</i>&nbsp;/*
+<i>15</i>&nbsp; * Implementation of Paxos as described in the &quot;The Part-Time Parliament&quot; (http://research.microsoft.com/en-us/um/people/lamport/pubs/lamport-paxos.pdf).
+<i>16</i>&nbsp; *
+<i>17</i>&nbsp; * Three requirements for Paxos based consensus:
+<i>18</i>&nbsp; * B1 - Each ballot has a unique number
+<i>19</i>&nbsp; * B2 - The quorum of any two ballots has at least one priest in common.
+<i>20</i>&nbsp; * B3 - If any priest from the ballot&#39;s quorum has voted earlier, then decree of this ballot
+<i>21</i>&nbsp; *      is same as the decree of the latest of earlier ballots in which any of the priest has voted.
+<i>22</i>&nbsp; */
+<i>23</i>&nbsp;
+<i>24</i>&nbsp;/**
+<i>25</i>&nbsp;  * Ballot number is a pair of priest specific unique ballot number and a priest id.
+<i>26</i>&nbsp;  * The ballot numbers are lexicographically ordered to maintain condition B1 above.
+<i>27</i>&nbsp;  */
+<i>28</i>&nbsp;case class BallotNum(priest: PId, ballot: Int) extends Ordered[BallotNum] {
+<i>29</i>&nbsp;
+<i>30</i>&nbsp;  import scala.math.Ordered.orderingToOrdered
+<i>31</i>&nbsp;
+<i>32</i>&nbsp;  def compare(that: BallotNum) = (this.ballot, this.priest) compare(that.ballot, that.priest)
+<i>33</i>&nbsp;}
+<i>34</i>&nbsp;
+<i>35</i>&nbsp;case class Decree(num: Int, value: String)
+<i>36</i>&nbsp;
+<i>37</i>&nbsp;abstract class Vote(val priest: PId)
+<i>38</i>&nbsp;
+<b class="pc"><i>39</i>&nbsp;case class ValidVote(num: BallotNum, override val priest: PId, decree: Decree) extends Vote(priest)</b>
+<i>40</i>&nbsp;
+<i>41</i>&nbsp;case class NullVote(override val priest: PId) extends Vote(priest)
+<i>42</i>&nbsp;
+<i>43</i>&nbsp;/* Various messages exchanged by the priest during voting */
+<i>44</i>&nbsp;case class NextBallotMsg(num: BallotNum)
+<i>45</i>&nbsp;
+<i>46</i>&nbsp;case class LastVoteMsg(num: BallotNum, vote: Vote)
+<i>47</i>&nbsp;
+<i>48</i>&nbsp;case class BeginBallotMsg(num: BallotNum, decree: Decree)
+<i>49</i>&nbsp;
+<i>50</i>&nbsp;case class VotedMsg(num: BallotNum, priest: PId)
+<i>51</i>&nbsp;
+<i>52</i>&nbsp;case class SuccessMsg(decree: Decree)
+<i>53</i>&nbsp;
+<i>54</i>&nbsp;case class GetSetValue(value: String)
+<i>55</i>&nbsp;
+<i>56</i>&nbsp;/*case class GetResultMsg()*/
+<i>57</i>&nbsp;
+<i>58</i>&nbsp;/*case class ResultMsg(num: BallotNum, quorumSize: Int, d: Decree, done: Boolean)*/
+<i>59</i>&nbsp;
+<i>60</i>&nbsp;/*
+<i>61</i>&nbsp; * Represents a ballot in progress.
+<i>62</i>&nbsp; * Each ballot has its own quorum, decree that was selected and its unique number.
+<i>63</i>&nbsp; */
+<i>64</i>&nbsp;class Ballot(b: BallotNum, quorumSize: Int, var d: Decree, listener: ActorRef) extends Actor {
+<i>65</i>&nbsp;  val log = Logging(context.system, this)
+<i>66</i>&nbsp;  val votes: mutable.MutableList[ValidVote] = mutable.MutableList()
+<i>67</i>&nbsp;  var quorum: Set[PId] = Set[PId]()
+<i>68</i>&nbsp;
+<i>69</i>&nbsp;  def receive: Receive = {
+<i>70</i>&nbsp;    case lvm@LastVoteMsg(b, v@NullVote(q)) =&gt;
+<i>71</i>&nbsp;      log.info(&quot;Got last vote message: {}&quot;, lvm)
+<i>72</i>&nbsp;      handleVote(q, v)
+<i>73</i>&nbsp;
+<i>74</i>&nbsp;    case lvm@LastVoteMsg(b, v@ValidVote(_, q, _)) =&gt;
+<i>75</i>&nbsp;      log.info(&quot;Got last vote message: {}&quot;, lvm)
+<i>76</i>&nbsp;      handleVote(q, v)
+<i>77</i>&nbsp;
+<i>78</i>&nbsp;    case VotedMsg(b, q) =&gt;
+<i>79</i>&nbsp;      log.info(&quot;Received vote for ballot = {} from priest {}&quot;, b, q)
+<i>80</i>&nbsp;      if (quorum.size &gt; 0) {
+<i>81</i>&nbsp;        quorum -= q
+<i>82</i>&nbsp;        if (quorum.size == 0) {
+<i>83</i>&nbsp;          log.info(&quot;Ballot successful: received votes from all quorum members&quot;)
+<i>84</i>&nbsp;          listener ! SuccessMsg(d)
+<i>85</i>&nbsp;          context.actorSelection(&quot;../../*&quot;) ! SuccessMsg(d)
+<i>86</i>&nbsp;        }
+<i>87</i>&nbsp;      }
+<i>88</i>&nbsp;
+<i>89</i>&nbsp;    /* case GetResultMsg =&gt;
+<i>90</i>&nbsp;      sender ! ResultMsg(b, quorumSize, d, quorum.size == 0)*/
+<i>91</i>&nbsp;  }
+<i>92</i>&nbsp;
+<i>93</i>&nbsp;  /*
+<i>94</i>&nbsp;   *  We start a new ballot by sending NextBal message to all
+<i>95</i>&nbsp;   * participants.
+<i>96</i>&nbsp;   */
+<i>97</i>&nbsp;  context.actorSelection(&quot;../../*&quot;) ! NextBallotMsg(b)
+<i>98</i>&nbsp;
+<i>99</i>&nbsp;  private def handleVote(q: PId, v: Vote) = {
+<i>100</i>&nbsp;    if (quorum.size == quorumSize) {
+<i>101</i>&nbsp;      log.info(&quot;Ballot closed&quot;)
+<i>102</i>&nbsp;    } else if (!quorum.contains(q)) {
+<i>103</i>&nbsp;      quorum = quorum + q
+<i>104</i>&nbsp;      v match {
+<i>105</i>&nbsp;        case x: ValidVote =&gt;
+<i>106</i>&nbsp;          votes += x
+<i>107</i>&nbsp;        case _ =&gt;
+<i>108</i>&nbsp;      }
+<i>109</i>&nbsp;
+<i>110</i>&nbsp;      /*
+<i>111</i>&nbsp;       * To maintain B3, we wait LastVoteMsg from quorum of priests.
+<i>112</i>&nbsp;       * If any of them voted earlier with a ValidVote, then we select
+<i>113</i>&nbsp;       * decree to be equal to the latest of such votes.
+<i>114</i>&nbsp;       * If none of them voted in an earlier ballot, we are free to choose the
+<i>115</i>&nbsp;       * decree ourselves (in this case, we choose the one requested by our client).
+<i>116</i>&nbsp;       */
+<i>117</i>&nbsp;      if (quorum.size == quorumSize) {
+<i>118</i>&nbsp;        log.info(&quot;Ballet ready to begin&quot;)
+<i>119</i>&nbsp;        d = votes.sortBy { v =&gt; v.num }.lastOption.map(_.decree).getOrElse(d)
+<i>120</i>&nbsp;        quorum.map(q =&gt; context.actorSelection(&quot;../../&quot; + q)).foreach(a =&gt; a ! BeginBallotMsg(b, d))
+<i>121</i>&nbsp;      }
+<i>122</i>&nbsp;    }
+<i>123</i>&nbsp;  }
+<i>124</i>&nbsp;}
+<i>125</i>&nbsp;
+<i>126</i>&nbsp;/**
+<i>127</i>&nbsp;  * Priest conducts and participates in the ballot.
+<i>128</i>&nbsp;  */
+<i>129</i>&nbsp;class Priest(quorumSize: Int) extends Actor {
+<i>130</i>&nbsp;  val log = Logging(context.system, this)
+<i>131</i>&nbsp;
+<i>132</i>&nbsp;  var myId: PId = self.path.name
+<i>133</i>&nbsp;  var nextBalNum: Int = -1
+<i>134</i>&nbsp;
+<i>135</i>&nbsp;  var nextBal: Option[BallotNum] = None
+<i>136</i>&nbsp;
+<i>137</i>&nbsp;  // All my previous votes
+<i>138</i>&nbsp;  var myVotes: mutable.MutableList[Vote] = mutable.MutableList[Vote]()
+<i>139</i>&nbsp;
+<i>140</i>&nbsp;  myVotes += NullVote(priest = myId)
+<i>141</i>&nbsp;
+<i>142</i>&nbsp;  var decrees: mutable.MutableList[Decree] = mutable.MutableList[Decree]()
+<i>143</i>&nbsp;
+<i>144</i>&nbsp;  def receive = conductor orElse elector
+<i>145</i>&nbsp;
+<i>146</i>&nbsp;  def conductor: Receive = {
+<i>147</i>&nbsp;    case GetSetValue(value) =&gt;
+<i>148</i>&nbsp;      val s = sender
+<i>149</i>&nbsp;      log.info(&quot;Got request to get or set value: {}&quot;, value)
+<i>150</i>&nbsp;      /*
+<i>151</i>&nbsp;       * Even to read a value we have to conduct an election.
+<i>152</i>&nbsp;       */
+<i>153</i>&nbsp;      nextBalNum += 1
+<i>154</i>&nbsp;      val b = BallotNum(myId, nextBalNum)
+<i>155</i>&nbsp;      context.actorOf(Props(new Ballot(b, 2, Decree(0, value), s)))
+<i>156</i>&nbsp;  }
+<i>157</i>&nbsp;
+<i>158</i>&nbsp;  def elector: Receive = {
+<i>159</i>&nbsp;    case &quot;test&quot; =&gt; log.info(&quot;received test&quot;)
+<i>160</i>&nbsp;
+<i>161</i>&nbsp;    case NextBallotMsg(b) =&gt;
+<i>162</i>&nbsp;      log.info(&quot;Received next ballot - {}&quot;, b)
+<i>163</i>&nbsp;
+<i>164</i>&nbsp;      /*
+<i>165</i>&nbsp;       * To satisfy B3, we have to ensure that any ballot&#39;s decree is chosen
+<i>166</i>&nbsp;       * from the highest ballot in which any of the quorum priest has voted.
+<i>167</i>&nbsp;       * So, if we have voted in an earlier ballot, let the initiator priest
+<i>168</i>&nbsp;       * know about the decree of that vote.
+<i>169</i>&nbsp;       */
+<i>170</i>&nbsp;
+<i>171</i>&nbsp;      if (nextBal.isEmpty || b &gt; nextBal.get) {
+<i>172</i>&nbsp;        nextBal = Some(b)
+<i>173</i>&nbsp;        log.info(&quot;Sending last vote message: {}&quot;, myVotes.last)
+<i>174</i>&nbsp;        sender ! LastVoteMsg(b, myVotes.last)
+<i>175</i>&nbsp;      }
+<i>176</i>&nbsp;
+<i>177</i>&nbsp;    case bb@BeginBallotMsg(b, d) if nextBal == Some(b) =&gt;
+<i>178</i>&nbsp;      log.info(&quot;Received Begin Ballot = {}&quot;, bb)
+<i>179</i>&nbsp;      myVotes += ValidVote(b, myId, d)
+<i>180</i>&nbsp;      sender ! VotedMsg(b, myId)
+<i>181</i>&nbsp;
+<i>182</i>&nbsp;    case SuccessMsg(d) =&gt;
+<i>183</i>&nbsp;      log.info(&quot;Received ballot success message: {}&quot;, d)
+<i>184</i>&nbsp;      decrees += d
+<i>185</i>&nbsp;
+<i>186</i>&nbsp;  }
+<i>187</i>&nbsp;}
+</div>
+</div>
+
+<div class="footer">
+    
+    <div style="float:right;">generated on 2015-12-30 22:53</div>
+</div>
+</body>
+</html>
